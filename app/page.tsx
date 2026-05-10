@@ -1,65 +1,102 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState, useCallback } from "react";
+import { ATTACKS, type Difficulty } from "./data/attacks";
+import SetupScreen from "./components/SetupScreen";
+import GameScreen from "./components/GameScreen";
+import EndScreen from "./components/EndScreen";
+
+type Screen = "setup" | "game" | "end";
+
+interface GameState {
+  players: string[];
+  scores: number[];
+  deck: typeof ATTACKS;
+  currentRound: number;
+  totalRounds: number;
+  difficulty: Difficulty;
+}
+
+function shuffled<T>(arr: T[]): T[] {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+export default function Page() {
+  const [screen, setScreen] = useState<Screen>("setup");
+  const [game, setGame] = useState<GameState | null>(null);
+
+  function handleStart(players: string[], difficulty: Difficulty) {
+    const deck = shuffled(ATTACKS).slice(0, 10);
+    setGame({
+      players,
+      scores: players.map(() => 0),
+      deck,
+      currentRound: 1,
+      totalRounds: deck.length,
+      difficulty,
+    });
+    setScreen("game");
+  }
+
+  const handleScore = useCallback((encoded: number) => {
+    // encoded >= 0 means add point to that player
+    // encoded < 0 means remove point (encoded = -(i+100), so i = -encoded - 100)
+    setGame((prev) => {
+      if (!prev) return prev;
+      const scores = [...prev.scores];
+      if (encoded >= 0) {
+        scores[encoded] = (scores[encoded] ?? 0) + 1;
+      } else {
+        const i = -encoded - 100;
+        scores[i] = Math.max(0, (scores[i] ?? 0) - 1);
+      }
+      return { ...prev, scores };
+    });
+  }, []);
+
+  function handleNext() {
+    setGame((prev) => {
+      if (!prev) return prev;
+      if (prev.currentRound >= prev.totalRounds) {
+        setScreen("end");
+        return prev;
+      }
+      return { ...prev, currentRound: prev.currentRound + 1 };
+    });
+  }
+
+  function handlePlayAgain() {
+    if (!game) return;
+    const deck = shuffled(ATTACKS).slice(0, 10);
+    setGame({ ...game, scores: game.players.map(() => 0), deck, currentRound: 1, totalRounds: deck.length });
+    setScreen("game");
+  }
+
+  if (screen === "setup" || !game) {
+    return <SetupScreen onStart={handleStart} />;
+  }
+
+  if (screen === "game") {
+    return (
+      <GameScreen
+        players={game.players}
+        scores={game.scores}
+        deck={game.deck}
+        currentRound={game.currentRound}
+        totalRounds={game.totalRounds}
+        difficulty={game.difficulty}
+        onScore={handleScore}
+        onNext={handleNext}
+      />
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <EndScreen
+      players={game.players}
+      scores={game.scores}
+      onPlayAgain={handlePlayAgain}
+      onSetup={() => setScreen("setup")}
+    />
   );
 }
