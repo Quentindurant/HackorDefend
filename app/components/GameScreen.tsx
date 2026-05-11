@@ -23,7 +23,8 @@ export default function GameScreen({ players, scores, deck, currentRound, totalR
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [cardKey, setCardKey] = useState(0);
 
-  // Reset on round change
+  // Reset on round change — setState calls here are intentional (batch reset on dep change)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setRevealed(false);
     setScoredSet(new Set());
